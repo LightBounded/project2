@@ -1,0 +1,37 @@
+# 2023 Stack Overflow Survey Regression Analysis
+
+Load the data and filter out rows with missing ConvertedCompYearly and ConvertedCompYearly > 1,000,000
+```{r}
+input_file_path <- "survey_results_public.csv"
+data <- read.csv(input_file_path)
+
+# Filter out rows with missing ConvertedCompYearly
+data <- data[!is.na(data$ConvertedCompYearly), ]
+
+# Filter out rows with Country != United States
+data <- data[data$Country == "United States of America", ]
+
+# Filter out rows with ConvertedCompYearly > 300000
+data <- data[data$ConvertedCompYearly < 300000, ]
+
+
+# Print length of data
+print(length(data$ConvertedCompYearly))
+```
+
+
+Determine if the data is normally distributed
+```{r}
+# Histogram
+hist(data$ConvertedCompYearly, main = "Yearly Compensation in the U.S.", xlab = "Yearly Compensation in the U.S.")
+
+# QQ Plot
+qqnorm(data$ConvertedCompYearly)
+qqline(data$ConvertedCompYearly)
+```
+
+Plot the data
+```{r}
+model = lm(data$ConvertedCompYearly ~ data$WorkExp + data$Age)
+summary(model)
+```
