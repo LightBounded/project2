@@ -32,6 +32,6 @@ qqline(data$ConvertedCompYearly)
 
 Plot the data
 ```{r}
-model <- lm(data$ConvertedCompYearly ~ data$WorkExp + data$Age)
+model <- lm(data$ConvertedCompYearly ~ data$WorkExp + data$Age + data$ICorPM + data$YearsCodePro)
 summary(model)
 ```
