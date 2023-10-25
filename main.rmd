@@ -1,37 +1,92 @@
-# 2023 Stack Overflow Survey Regression Analysis
+---
+title: "2023 Stack Overflow Survey Data Regression Analysis"
+author: "Caleb Rivera & Nick Doon"
+date: "Oct 24, 2023"
+---
 
-Load the data and filter out rows with missing ConvertedCompYearly and ConvertedCompYearly > 1,000,000
+For this study, we will be using the 2020 Stack Overflow Survey data to predict the yearly compensation of a developer in the United States. We will be using multiple linear regression to predict the yearly compensation of a developer in the United States.
+
+Variables we are interested in:
+
+- ConvertedCompYearly (dependent variable)
+- MainBranch 
+- Age
+- Employment
+- YearsCode
+- YearsCodePro
+- DevType
+- OrgSize
+- EdLevel
+- Remote
+- PurchaseInfluence
+
+Load the data 
 ```{r}
 input_file_path <- "survey_results_public.csv"
 data <- read.csv(input_file_path)
+```
 
-# Filter out rows with missing ConvertedCompYearly
-data <- data[!is.na(data$ConvertedCompYearly), ]
-
-# Filter out rows with Country != United States
+Remove rows with Country != United States
+```{r}
 data <- data[data$Country == "United States of America", ]
+```
 
-# Filter out rows with ConvertedCompYearly > 300000
-data <- data[data$ConvertedCompYearly < 300000, ]
+Remove columns we are not interested in
+```{r}
+data <- data[, c("MainBranch", "Age", "Employment", "YearsCode", "YearsCodePro", "DevType", "OrgSize", "EdLevel", "RemoteWork", "PurchaseInfluence", "ConvertedCompYearly", "Country")]
+```
 
+Remove rows with missing CompTotal or non-numeric CompTotal
+```{r}
+# Convert the column to numeric, this will turn non-numeric values to NA
+data$ConvertedCompYearly <- as.numeric(as.character(data$ConvertedCompYearly))
 
-# Print length of data
-print(length(data$ConvertedCompYearly))
+# Keep only the rows where ConvertedCompYearly is not NA
+data <- data[!is.na(data$ConvertedCompYearly), ]
+```
+
+Create a model using the variables we are interested in
+```{r}
+model <- lm(data$ConvertedCompYearly ~ data$MainBranch + data$Age + data$Employment + data$YearsCode + data$YearsCodePro + data$DevType + data$OrgSize + data$EdLevel + data$RemoteWork + data$PurchaseInfluence)
+```
+
+Remove outliers in dependent variable (ConvertedCompYearly)
+```{r}
+# Calculate the mean and standard deviation of ConvertedCompYearly
+mean <- mean(data$ConvertedCompYearly)
+sd <- sd(data$ConvertedCompYearly)
+
+# Keep only the rows where ConvertedCompYearly is within 3 standard deviations of the mean
+data <- data[data$ConvertedCompYearly > mean - 3 * sd & data$ConvertedCompYearly < mean + 3 * sd, ]
+
+# Refit the model
+model <- lm(data$ConvertedCompYearly ~ data$MainBranch + data$Age + data$Employment + data$YearsCode + data$YearsCodePro + data$DevType + data$OrgSize + data$EdLevel + data$RemoteWork + data$PurchaseInfluence)
+```
+
+Remove outliers in predictor variables using Cook's distance 
+```{r}
+# Calculate Cook's distance
+cooksd <- cooks.distance(model)
+
+# Keep only the rows where Cook's distance is less than 1
+data <- data[cooksd < 1, ]
+
+# Refit the model
+model <- lm(data$ConvertedCompYearly ~ data$MainBranch + data$Age + data$Employment + data$YearsCode + data$YearsCodePro + data$DevType + data$OrgSize + data$EdLevel + data$RemoteWork + data$PurchaseInfluence)
 ```
 
 
 Determine if the data is normally distributed
 ```{r}
 # Histogram
-hist(data$ConvertedCompYearly, main = "Yearly Compensation in the U.S.", xlab = "Yearly Compensation in the U.S.")
+hist(data$ConvertedCompYearly, breaks = 100)
 
 # QQ Plot
 qqnorm(data$ConvertedCompYearly)
 qqline(data$ConvertedCompYearly)
 ```
 
-Plot the data
 ```{r}
-model <- lm(data$ConvertedCompYearly ~ data$WorkExp + data$Age + data$ICorPM + data$YearsCodePro)
-summary(model)
+# Residuals vs Fitted
+plot(model, which = 1)
 ```
