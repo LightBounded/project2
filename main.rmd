@@ -4,21 +4,31 @@ author: "Caleb Rivera & Nick Doon"
 date: "Oct 24, 2023"
 ---
 
-For this study, we will be using the 2020 Stack Overflow Survey data to predict the yearly compensation of a developer in the United States. We will be using multiple linear regression to predict the yearly compensation of a developer in the United States.
+For this study, we will be using the 2020 Stack Overflow Survey data to predict the yearly compensation of a developer in the United States. We will be using multiple linear regression.
 
 Variables we are interested in:
 
-- ConvertedCompYearly (dependent variable)
-- MainBranch 
-- Age
-- Employment
-- YearsCode
-- YearsCodePro
-- DevType
-- OrgSize
-- EdLevel
-- Remote
-- PurchaseInfluence
+- ConvertedCompYearly (annual compensation including salary, bonuses, and perks, before taxes and deductions, dependent variable, numeric)
+- ICorPM (whether or not the developer is a professional developer, categorical)
+- CodingActivities (coding activities outside of work, categorical)
+- Age (age range, categorical)
+- Employment (employment status, categorical)
+- DevType (developer type, categorical)
+- OrgSize (organization size, categorical)
+- EdLevel (education level, categorical)
+- Remote Work (remote work, categorical)
+- PurchaseInfluence (whether or not the developer has influence over purchasing decisions, categorical)
+- WorkExp (work experience, numerical)
+- Country (country, categorical)
+- YearsCode (years of coding experience, numerical)
+- YearsCodePro (years of professional coding experience, numerical)
+- LanguageWorkedWith (programming languages worked with, categorical)
+
+Set up the environment
+```{r}
+# Load the libraries
+library(car)
+```
 
 Load the data 
 ```{r}
@@ -26,67 +36,112 @@ input_file_path <- "survey_results_public.csv"
 data <- read.csv(input_file_path)
 ```
 
-Remove rows with Country != United States
+Testing
+```{r}
+summary(lm(ConvertedCompYearly ~ WorkExp, data = data))
+```
+
+Filter rows to only include United States
 ```{r}
 data <- data[data$Country == "United States of America", ]
 ```
 
 Remove columns we are not interested in
 ```{r}
-data <- data[, c("MainBranch", "Age", "Employment", "YearsCode", "YearsCodePro", "DevType", "OrgSize", "EdLevel", "RemoteWork", "PurchaseInfluence", "ConvertedCompYearly", "Country")]
+data <- data[, c("ConvertedCompYearly", "ICorPM", "CodingActivities", "Age", "Employment", "DevType", "OrgSize", "EdLevel", "RemoteWork", "PurchaseInfluence", "WorkExp", "YearsCode", "YearsCodePro")]
+```
+``` 
+
+Remove rows with NA values
+```{r}
+data <- na.omit(data)
 ```
 
-Remove rows with missing CompTotal or non-numeric CompTotal
+Explore the data
 ```{r}
-# Convert the column to numeric, this will turn non-numeric values to NA
-data$ConvertedCompYearly <- as.numeric(as.character(data$ConvertedCompYearly))
-
-# Keep only the rows where ConvertedCompYearly is not NA
-data <- data[!is.na(data$ConvertedCompYearly), ]
+summary(data)
 ```
 
-Create a model using the variables we are interested in
+Create model with all interested variables
 ```{r}
-model <- lm(data$ConvertedCompYearly ~ data$MainBranch + data$Age + data$Employment + data$YearsCode + data$YearsCodePro + data$DevType + data$OrgSize + data$EdLevel + data$RemoteWork + data$PurchaseInfluence)
-```
-
-Remove outliers in dependent variable (ConvertedCompYearly)
-```{r}
-# Calculate the mean and standard deviation of ConvertedCompYearly
-mean <- mean(data$ConvertedCompYearly)
-sd <- sd(data$ConvertedCompYearly)
-
-# Keep only the rows where ConvertedCompYearly is within 3 standard deviations of the mean
-data <- data[data$ConvertedCompYearly > mean - 3 * sd & data$ConvertedCompYearly < mean + 3 * sd, ]
-
-# Refit the model
-model <- lm(data$ConvertedCompYearly ~ data$MainBranch + data$Age + data$Employment + data$YearsCode + data$YearsCodePro + data$DevType + data$OrgSize + data$EdLevel + data$RemoteWork + data$PurchaseInfluence)
-```
-
-Remove outliers in predictor variables using Cook's distance 
-```{r}
-# Calculate Cook's distance
-cooksd <- cooks.distance(model)
-
-# Keep only the rows where Cook's distance is less than 1
-data <- data[cooksd < 1, ]
-
-# Refit the model
-model <- lm(data$ConvertedCompYearly ~ data$MainBranch + data$Age + data$Employment + data$YearsCode + data$YearsCodePro + data$DevType + data$OrgSize + data$EdLevel + data$RemoteWork + data$PurchaseInfluence)
+model <- lm(ConvertedCompYearly ~ ICorPM + CodingActivities + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro, data = data)
 ```
 
 
-Determine if the data is normally distributed
+Check model assumptions
 ```{r}
-# Histogram
-hist(data$ConvertedCompYearly, breaks = 100)
+plot(model)
+```
 
-# QQ Plot
-qqnorm(data$ConvertedCompYearly)
-qqline(data$ConvertedCompYearly)
+Check for multicollinearity
+```{r}
+vif(model)
+```
+
+Check for outliers
+```{r}
+outlierTest(model)
 ```
 
 ```{r}
-# Residuals vs Fitted
-plot(model, which = 1)
+anova(model)
+```
+
+Bidirectional stepwise regression
+```{r}
+model <- step(model, direction = "both")
+```
+
+Conduct post-hoc analysis
+```{r}
+anova(model)
+```
+
+```{r}
+summary(model)
+```
+
+```{r}
+plot(model)
+```
+
+```{r}
+vif(model)
+```
+
+Age and YearsCodePro are highly correlated, so we will test which one is more significant
+```{r}
+model1 <- lm(ConvertedCompYearly ~ ICorPM + CodingActivities + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro, data = data)
+model2 <- lm(ConvertedCompYearly ~ ICorPM + CodingActivities + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + Age, data = data)
+```
+
+Compare models
+```{r}
+AIC(model1, model2)
+BIC(model1, model2)
+
+summary(model1)
+summary(model2)
+```
+
+Include YearsCodePro based on domain knowledge
+```{r}
+model <- lm(ConvertedCompYearly ~ ICorPM + CodingActivities + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro, data = data)
+```
+
+Check model assumptions
+```{r}
+plot(model)
+```
+
+Check for multicollinearity
+```{r}
+vif(model)
+```
+
+The variable CodingActivities has a high GVIF, but its adjusted value is still close to 1, indicating that while there might be some correlation among its categories, it may not be severely problematic. We will keep it in the model.
+
+Check for outliers
+```{r}
+outlierTest(model)
 ```
