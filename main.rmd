@@ -4,41 +4,83 @@ author: "Caleb Rivera & Nick Doon"
 date: "Oct 24, 2023"
 ---
 
-For this study, we will be using the 2020 Stack Overflow Survey data to predict the yearly compensation of a developer in the United States. We will be using multiple linear regression.
+For this study, we will be using the 2020 Stack Overflow Survey data to predict the yearly compensation of a developer in the United States. We will be using multiple linear regression to create the best model to predict the yearly compensation of a developer. We will be using the following variables to predict the yearly compensation of a developer in the United States.
+
 
 Variables we are interested in:
 
-- ConvertedCompYearly (annual compensation including salary, bonuses, and perks, before taxes and deductions, dependent variable, numeric)
-- ICorPM (whether or not the developer is a professional developer, categorical)
-- CodingActivities (coding activities outside of work, categorical)
-- Age (age range, categorical)
-- Employment (employment status, categorical)
-- DevType (developer type, categorical)
-- OrgSize (organization size, categorical)
-- EdLevel (education level, categorical)
-- Remote Work (remote work, categorical)
-- PurchaseInfluence (whether or not the developer has influence over purchasing decisions, categorical)
-- WorkExp (work experience, numerical)
-- Country (country, categorical)
-- YearsCode (years of coding experience, numerical)
-- YearsCodePro (years of professional coding experience, numerical)
-- LanguageWorkedWith (programming languages worked with, categorical)
+- CompTotal (annual compensation)
+- ICorPM (individual contributor or people manager)
+- CodingActivities (coding activities outside of work)
+- Age (age range the developer falls into)
+- Employment (employment status)
+- DevType (developer type)
+- OrgSize (organization size)
+- EdLevel (education level)
+- Remote Work (whether or not the developer works remotely)
+- PurchaseInfluence (whether or not the developer has influence over purchasing decisions)
+- WorkExp (years of working experience)
+- Country (country of residence)
+- YearsCode (years of coding experience including any education)
+- YearsCodePro (years of professional coding experience excluding education)
+- LanguageHaveWorkedWith (programming, scripting, and markup languages the developed has done extensive work with)
+- DatabaseHaveWorkedWith (databases the developer has done extensive work with)
+- PlatformHaveWorkedWith (cloud platforms the developer has done extensive work with)
+- WebframeHaveWorkedWith (web frameworks the developer has done extensive work with)
+- MiscTechHaveWorkedWith (other technologies the developer has done extensive work with)
+- ToolsTechHaveWorkedWith (tools for compiling, building, and testing code that the developer has done extensive work with)
+- Industry (industry the developer is in)
+- LearnCode (how the developer learned to code)
+- LearnCodeCoursesCert (online courses or certifications the developer has taken)
+- LearnCodeOnline (online resources the developer has used to learn to code)
 
-Set up the environment
+Since there are many variables that we are interested in, we will only be choosing a select few to fit in our model. Using industry knowledge, we will choose the variables that we believe will have the most impact on the yearly compensation of a developer while also trying to avoid multicollinearity, overfitting, and uncessary complexity.
+
+Our initial model will include the following variables:
+
+- CompTotal - this is what we are trying to predict
+- ICorPM - managers and people in leadership positions tend to make more money
+- CodingActivities - we believe that developers who code outside of work tend to perform better at work and are more likely to be promoted
+- Age - older developers tend to be more experienced and make more money
+- Employment - we believe that developers who are employed full-time tend to make more money
+- DevType - different types of developers make different amounts of money
+- OrgSize - depending on the size of the organization, developers may make more or less money
+- EdLevel - developers with higher education levels may make more money
+- Remote Work - this is an interesting variable that we're not sure how it will affect the yearly compensation of a developer but would like to investigate
+- PurchaseInfluence - developers that have influence over purchasing decisions may make more money
+- WorkExp - developers with more experience tend to make more money
+- YearsCode - developers with more experience tend to make more money
+- YearsCodePro - developers with more experience tend to make more money
+- Industry - different industries pay different amounts of money
+
+Why we aren't including the following variables:
+
+- Country - we are only interested in the United States
+- LanguageHaveWorkedWith - there are too many languages that developers can have experience working with and it may add unnecessary complexity to the model
+- DatabaseHaveWorkedWith - there are too many databases that developers can have experience working with and it may add unnecessary complexity to the model
+- PlatformHaveWorkedWith - there are too many platforms that developers can have experience working with and it may add unnecessary complexity to the model
+- WebframeHaveWorkedWith - there are too many web frameworks that developers can have experience working with and it may add unnecessary complexity to the model
+- MiscTechHaveWorkedWith - there are too many other technologies that developers can have experience working with and it may add unnecessary complexity to the model
+- ToolsTechHaveWorkedWith - there are too many tools that developers can have experience working with and it may add unnecessary complexity to the model
+- LearnCode - there are too many ways that developers can learn to code and it may add unnecessary complexity to the model
+- LearnCodeCoursesCert - there are too many online courses and certifications that developers can take and it may add unnecessary complexity to the model
+- LearnCodeOnline - there are too many online resources that developers can use to learn to code and it may add unnecessary complexity to the model
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Install and load the libraries
 ```{r}
-# Load the libraries
 library(car)
+library(MASS)
+library(caret)
 ```
 
 Load the data 
 ```{r}
 input_file_path <- "survey_results_public.csv"
 data <- read.csv(input_file_path)
-```
-
-Testing
-```{r}
-summary(lm(ConvertedCompYearly ~ WorkExp, data = data))
 ```
 
 Filter rows to only include United States
@@ -48,13 +90,17 @@ data <- data[data$Country == "United States of America", ]
 
 Remove columns we are not interested in
 ```{r}
-data <- data[, c("ConvertedCompYearly", "ICorPM", "CodingActivities", "Age", "Employment", "DevType", "OrgSize", "EdLevel", "RemoteWork", "PurchaseInfluence", "WorkExp", "YearsCode", "YearsCodePro")]
+data <- data[, c("CompTotal", "ICorPM", "CodingActivities", "Age", "Employment", "DevType", "OrgSize", "EdLevel", "RemoteWork", "PurchaseInfluence", "WorkExp", "YearsCode", "YearsCodePro", "LanguageHaveWorkedWith", "DatabaseHaveWorkedWith", "PlatformHaveWorkedWith", "WebframeHaveWorkedWith", "MiscTechHaveWorkedWith", "ToolsTechHaveWorkedWith", "Industry", "LearnCode", "LearnCodeCoursesCert", "LearnCodeOnline")]
 ```
-``` 
 
 Remove rows with NA values
 ```{r}
 data <- na.omit(data)
+```
+
+Remove rows with 0 values
+```{r}
+data <- data[data$CompTotal != 0, ]
 ```
 
 Explore the data
@@ -62,86 +108,242 @@ Explore the data
 summary(data)
 ```
 
-Create model with all interested variables
+Fit a model using all variables we are interested in
 ```{r}
-model <- lm(ConvertedCompYearly ~ ICorPM + CodingActivities + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro, data = data)
+model <- lm(CompTotal ~ ICorPM + CodingActivities + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry, data = data)
 ```
 
-
-Check model assumptions
+Plot the model
 ```{r}
 plot(model)
 ```
 
-Check for multicollinearity
+It seems like there are some outliers in the data. Let's remove them using Cook's distance and see if the model improves.
+
+Find outliers using Cook's distance
 ```{r}
-vif(model)
+# Find outliers using Cook's distance
+cooks_d <- cooks.distance(model)
+
+# Find influential points
+n <- nrow(data)
+threshold <- 4 / n
+influential <- which(cooks_d > threshold)
+
+# Print influential points
+print(influential)
+
+# Remove influential points
+data <- data[-influential, ]
+
+# Refit the model
+model <- lm(CompTotal ~ ICorPM + CodingActivities + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry, data = data)
+```
+ 
+Plot the model after removing outliers
+```{r}
+plot(model)
 ```
 
-Check for outliers
+Our model has improved slightly, let's see if we can improve it further by transforming the data.
+
+Transform the data using log
 ```{r}
-outlierTest(model)
+data$CompTotal <- log(data$CompTotal)
+model <- lm(CompTotal ~ ICorPM + CodingActivities + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry, data = data)
 ```
 
+Plot the model
 ```{r}
-anova(model)
+plot(model)
 ```
 
-Bidirectional stepwise regression
+Our model has improved significantly by transforming the data. Let's address multicollinearity by removing variables that are highly correlated with each other.
+
+Let's check if YearsCoding and YearsCodingPro are highly correlated with each other.
+
+Calculate the correlation between YearsCode and YearsCodePro using Spearman's rank correlation coefficient
+```{r}
+temp_data <- data[, c("YearsCode", "YearsCodePro")]
+
+# Convert YearsCode to numeric
+temp_data$YearsCodeNum <- as.numeric(temp_data$YearsCode)
+
+# Convert YearsCodePro to numeric
+temp_data$YearsCodeProNum <- as.numeric(temp_data$YearsCodePro)
+
+# Remove rows with NA values
+temp_data <- na.omit(temp_data)
+
+
+cor.test(temp_data$YearsCodeNum, temp_data$YearsCodeProNum, method = "spearman")
+```
+```
+Years of coding experience and years of professional coding experience are nearly perfectly correlated with each other. Let's decide which one to keep in our model using partial F-tests to determine which variable is more significant.
+
+Partial F test for the addition of YearsCode
+```{r}
+restricted_model <- lm(CompTotal ~ ICorPM + CodingActivities + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + Industry, data = data)
+unrestricted_model <- lm(CompTotal ~ ICorPM + CodingActivities + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + Industry, data = data)
+anova(restricted_model, unrestricted_model)
+```
+
+Partial F test for the addition of YearsCodePro
+```{r}
+restricted_model <- lm(CompTotal ~ ICorPM + CodingActivities + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + Industry, data = data)
+unrestricted_model <- lm(CompTotal ~ ICorPM + CodingActivities + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCodePro + Industry, data = data)
+anova(restricted_model, unrestricted_model)
+```
+
+Since the p-value for the partial F test for the addition of YearsCodePro is lower than the p-value for the partial F test for the addition of YearsCode, we will remove YearsCode from our model. This also supports our initial hypothesis that YearsCodePro would be more significant than YearsCode.
+
+Remove YearsCode from the model
+```{r}
+model <- lm(CompTotal ~ ICorPM + CodingActivities + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCodePro + Industry, data = data)
+```
+
+Plot the model
+```{r}
+plot(model)
+```
+
+The model has improved slightly. Let's assess multicollinearity by looking at the variance inflation factors (VIF) of the variables in our model.
+
+Calculate the variance inflation factors (VIF)
+```{r}
+vif(model, GVIF = TRUE)
+```
+
+The VIF for YearsCodePro is very high. This is expected since YearsCodePro is highly correlated with WorkExp. Let's remove YearsCodePro from the model and see if it improves.
+
+Remove YearsCodePro from the model
+```{r}
+model <- lm(CompTotal ~ ICorPM + CodingActivities + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + Industry, data = data)
+```
+
+Plot the model
+```{r}
+plot(model)
+```
+
+The model has improved slightly. Let's assess multicollinearity again.
+
+Calculate the variance inflation factors (VIF)
+```{r}
+vif(model, GVIF = TRUE)
+```
+
+Coding activities and dev type have the highest VIFs. This might be because there are many different types of coding activities and many different types of developers. Let's remove coding activities and dev type from the model and see if it improves.
+
+Remove coding activities and dev type from the model
+```{r}
+model <- lm(CompTotal ~ ICorPM + Age + Employment + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + Industry, data = data)
+```
+
+Plot the model
+```{r}
+plot(model)
+```
+
+The model has improved slightly. Let's assess multicollinearity again.
+
+Calculate the variance inflation factors (VIF)
+```{r}
+vif(model, GVIF = TRUE)
+```
+
+All the VIFs are below 5. This is good enough for us. Let's perform stepwise regression to see if we can improve the model further.
+
+Perform stepwise regression in both directions to see if we can improve the model
 ```{r}
 model <- step(model, direction = "both")
 ```
 
-Conduct post-hoc analysis
-```{r}
-anova(model)
-```
+After performing stepwise regression, we've removed remote work and employment from the model.
 
-```{r}
-summary(model)
-```
-
+Plot the model
 ```{r}
 plot(model)
 ```
 
+The model has improved slightly. Let's assess multicollinearity again.
+
+Calculate the variance inflation factors (VIF)
 ```{r}
-vif(model)
+vif(model, GVIF = TRUE)
 ```
 
-Age and YearsCodePro are highly correlated, so we will test which one is more significant
+All the VIFs are below 5. This is good enough for us. Let's evaluate the model using the Split-Sample Validation method.
+
+Split the data into a training set and a testing set
 ```{r}
-model1 <- lm(ConvertedCompYearly ~ ICorPM + CodingActivities + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro, data = data)
-model2 <- lm(ConvertedCompYearly ~ ICorPM + CodingActivities + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + Age, data = data)
+set.seed(123)
+training_index <- createDataPartition(data$CompTotal, p = 0.8, list = FALSE)
+training_set <- data[training_index, ]
+testing_set <- data[-training_index, ]
 ```
 
-Compare models
+Fit the model using the training set
 ```{r}
-AIC(model1, model2)
-BIC(model1, model2)
-
-summary(model1)
-summary(model2)
+model <- lm(CompTotal ~ ICorPM + Age + OrgSize + EdLevel + PurchaseInfluence + WorkExp + Industry, data = training_set)
 ```
 
-Include YearsCodePro based on domain knowledge
+Calculate the R-squared value of the model using the training set
 ```{r}
-model <- lm(ConvertedCompYearly ~ ICorPM + CodingActivities + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro, data = data)
+R_squared_train <- summary(model)$r.squared
 ```
 
-Check model assumptions
+Apply the model to the testing set to make predictions
+```{r}
+predictions <- predict(model, testing_set)
+```
+
+Calculate R-squared for the testing set using the predictions and the actual values
+```{r}
+actual <- testing_set$CompTotal
+SSE_test <- sum((predictions - actual)^2)
+SST_test <- sum((actual - mean(actual))^2)
+R_squared_test <- 1 - SSE_test / SST_test
+```
+
+Calculate the shrinkage factor
+```{r}
+shrinkage <- (R_squared_train - R_squared_test) / R_squared_train
+```
+
+Output the R-squared values and the shrinkage
+```{r}
+print(paste("R-squared for Training:", R_squared_train))
+print(paste("R-squared for Testing:", R_squared_test))
+print(paste("Shrinkage:", shrinkage))
+```
+
+Interpret the shrinkage value
+A shrinkage value <= 0.1 is considered to indicate a reliable model
+```{r}
+if (shrinkage <= 0.1) {
+  print("The model is considered reliable.")
+} else {
+  print("The model might be overfitting. Consider revisiting the model.")
+}
+```
+
+The model is considered reliable. Let's see if we can improve the model by adding interaction or higher order terms.
+
+People manager's tend to be older and have more experience. Let's see if the interaction between ICorPM and Age improves the model. We'll perform a partial F test to see if the interaction term improves the model.
+```{r}
+restricted_model <- lm(CompTotal ~ ICorPM + Age + OrgSize + EdLevel + PurchaseInfluence + WorkExp + Industry, data = data)
+unrestricted_model <- lm(CompTotal ~ ICorPM + Age + OrgSize + EdLevel + PurchaseInfluence + WorkExp + Industry + ICorPM * Age, data = data)
+anova(restricted_model, unrestricted_model)
+```
+
+The addition of the interaction term is significant. Let's add it to the model.
+```{r}
+model <- lm(CompTotal ~ ICorPM * Age + OrgSize + EdLevel + PurchaseInfluence + WorkExp + Industry + ICorPM * Age, data = data)
+```
+
+Plot the model
 ```{r}
 plot(model)
-```
-
-Check for multicollinearity
-```{r}
-vif(model)
-```
-
-The variable CodingActivities has a high GVIF, but its adjusted value is still close to 1, indicating that while there might be some correlation among its categories, it may not be severely problematic. We will keep it in the model.
-
-Check for outliers
-```{r}
-outlierTest(model)
+summary(model)$r.squared
 ```
