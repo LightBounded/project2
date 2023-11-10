@@ -8,24 +8,13 @@ library(glmnet)
 library(olsrr)
 ```
 
-Functions to check model criteria
+Function to check model criteria
 ```{r}
 check_criteria <- function(model) {
-    plot(model)
-
-    print(vif(model))
-
     print(paste("R squared:", summary(model)$r.squared))
     print(paste("R squared adjusted:", summary(model)$adj.r.squared))
-
     print(paste("AIC:", AIC(model)))
     print(paste("BIC:", BIC(model)))
-
-    mse <- mean((exp(predict(model)) - data$CompTotal)^2)
-    print(paste("MSE:", mse))
-
-    rmse <- sqrt(mse)
-    print(paste("RMSE:", rmse))
 }
 ```
 
@@ -43,172 +32,126 @@ summary(data)
 
 Fit a model using the variables we're interested in
 ```{r}
-model <- lm(CompTotal ~ ., data = data)
+model <- lm(CompTotal ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide, data = data)
 ```
 
 Check 5 assumptions of linear regression
 ```{r}
 plot(model)
+hist(model$residuals)
 ```
 
-Our seems to have some influential points, so let's removing them using Cook's distance and refit the model
+According to our residuals vs. fitted values plot, our model violates the assumption of homoscedasticity. We also see that there is skewness to the right in our residuals histogram, which violates the assumption of normality.
+
+Let's try to fix these issues by performing a log transformation on the response variable.
 ```{r}
-# Find outliers using Cook's distance
-cooks_d <- cooks.distance(model)
-
-# Find influential points
-n <- nrow(data)
-threshold <- 4 / n
-influential <- which(cooks_d > threshold)
-
-# Print influential points
-print(influential)
-
-# Remove influential points
-data <- data[-influential, ]
-
-# Refit the model
-model <- lm(CompTotal ~ ., data = data)
+model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide, data = data)
 plot(model)
+hist(model$residuals)
 ```
 
-Remove influential points using leverage and refit the model
+Our model is now significantly better in terms of homoscedasticity, but could use some improvement in terms of normality.
+
+Let's try to fix this by identifying and removing outliers using Cook's distance.
 ```{r}
-# Find outliers using leverage
-leverage <- hatvalues(model)
+cooks_distance <- cooks.distance(model)
+plot(cooks_distance)
 
-# Find influential points
-n <- nrow(data)
-threshold <- 2 * (ncol(data) + 1) / n
-influential <- which(leverage > threshold)
+outliers <- cooks_distance > 4 / nrow(data)
 
-# Print influential points
-print(influential)
+nrow(data)
+data <- data[!outliers, ]
+data <- na.omit(data)
+nrow(data)
 
-# Remove influential points
-data <- data[-influential, ]
-
-# Refit the model
-model <- lm(CompTotal ~ ., data = data)
-```
-
-Perform log transformation on compensation to fix problems with homoscedasticity and normality
-```{r}
-model <- lm(log(CompTotal) ~ ., data = data)
+model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide, data = data)
 plot(model)
+hist(model$residuals)
 ```
 
-Since our model now satisfies the 5 assumptions of linear regression, we can proceed with model selection.
+This has significantly improved our model overall. There's no pattern in our residuals vs. fitted values plot, and our residuals are much closer to a normal distribution.
 
-Here's our model's summary
+Let's next check for multicollinearity.
+```{r}
+vif(model)
+```
+
+Here we see that YearsCodePro has a GVIF > 5, which is indicative of multicollinearity. However, for this study, we value professional coding experience over general coding experience that includes coding done as a hobby and in school. Therefore, we will keep YearsCodePro in our model and remove YearsCode.
+```{r}
+model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide, data = data)
+vif(model)
+```
+
+Although that the GVIF values of all our variables are < 10, we see that YearsCodePro and WorkExp have GVIF values close to 10. Let's remove WorkExp from our model, since this may include irrelevant, non-coding work experience.
+```{r}
+model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide, data = data)
+vif(model)
+```
+
+Now we see that each GVIF value is < 10, which means that multicollinearity is no longer an issue.
+
+Before we go into model selection, here's the criteria we will using to evaluate our models:
+
+- R squared
+- R squared adjusted
+- AIC
+- BIC
+- Domain knowledge
+
+Let's assess our model using the criteria above.
+
 ```{r}
 check_criteria(model)
 ```
 
-Although YearsCodePro has a higher GVIF than YearsCode, we'll remove YearsCode instead since we value professional experience more than just general coding experience.
-
-Remove YearsCode and refit the model
-```{r}
-model <- lm(log(CompTotal) ~ . - YearsCode, data = data)
-check_criteria(model)
-```
-
-Although nothing has changed, we'll keep the model for the sake of parsimony.
-
-Let's see if we can further improve the model by using stepwise, forward, or backward selection.
+Our current model is pretty good, but we can do better. Let's try to improve it by performing stepwise, forward, and backward selection using AIC as our selection criteria.
 
 Stepwise selection
 ```{r}
-stepwise_model <- step(
-    object = lm(log(CompTotal) ~ 1, data = data),
+step_model <- step(lm(log(CompTotal) ~ 1, data = data),
     direction = "both",
-    k = log(nrow(data)),
-    scope = list(
-        lower = ~1,
-        upper = model
-    )
+    scope = list(upper = model, lower = ~1)
 )
-check_criteria(stepwise_model)
+check_criteria(step_model)
 ```
 
 Forward selection
 ```{r}
-forward_model <- step(
-    object = lm(log(CompTotal) ~ 1, data = data),
+forward_model <- step(lm(log(CompTotal) ~ 1, data = data),
     direction = "forward",
-    k = log(nrow(data)),
-    scope = list(
-        lower = ~1,
-        upper = model
-    )
+    scope = list(upper = model, lower = ~1)
 )
 check_criteria(forward_model)
 ```
 
 Backward selection
 ```{r}
-backward_model <- step(
-    model,
-    direction = "backward",
-    k = log(nrow(data)),
-)
+backward_model <- step(model, direction = "backward")
 check_criteria(backward_model)
 ```
 
-All three methods have resulted in the same model as the one we had before, so we'll keep either one of them.
-```{r}
-model <- stepwise_model
-```
+All three selection methods have produced models that are the same as our original model. Therefore, we will keep our original model.
 
-Split the data into training and test sets
+Let's test the reliability of our model using split validation and calculating the shrinkage factor.
+
 ```{r}
 set.seed(123)
-train_index <- createDataPartition(data$CompTotal, p = 0.8, list = FALSE)
+
+train_index <- createDataPartition(data$CompTotal, p = 0.7, list = FALSE)
 train <- data[train_index, ]
 test <- data[-train_index, ]
+
+model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro + Industry, data = train)
+
+predictions_train <- predict(model, train)
+predictions_test <- predict(model, test)
+
+r_squared_train <- cor(predictions_train, train$CompTotal)^2
+r_squared_test <- cor(predictions_test, test$CompTotal)^2
+
+shrinkage_factor <- r_squared_train - r_squared_test
+shrinkage_factor
 ```
 
-Fit a model using the training set
-```{r}
-nrow(data)
-model <- lm(model, data = train)
-```
-
-Calculate the R-squared value of the model using the training set
-```{r}
-r_squared_train <- summary(model)$r.squared
-```
-
-Apply the model to the testing set to make predictions
-```{r}
-predictions <- predict(model, test)
-```
-
-Calculate the R-squared value of the model using the predictions and the actual values
-```{r}
-r_squared_test <- cor(predictions, test$CompTotal)^2
-```
-
-Calculate the shrinkage factor
-```{r}
-shrinkage <- (r_squared_train - r_squared_test)
-```
-
-Output the R-squared values and the shrinkage
-```{r}
-paste("R-squared for Training:", r_squared_train)
-paste("R-squared for Testing:", r_squared_test)
-paste("Shrinkage:", shrinkage)
-```
-
-Interpret the shrinkage value
-
-A shrinkage value <= 0.1 is considered to indicate a reliable model
-```{r}
-if (shrinkage <= 0.1) {
-    print("The model is considered reliable.")
-} else {
-    print("The model might be overfitting. Consider revisiting the model.")
-}
-```
+Our shrinkage factor is 0.03413445, which is <= 0.1. Therefore, our model is reliable.
 
