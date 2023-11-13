@@ -11,6 +11,7 @@ library(olsrr)
 Function to check model criteria
 ```{r}
 check_criteria <- function(model) {
+    print(vif(model))
     print(paste("R squared:", summary(model)$r.squared))
     print(paste("R squared adjusted:", summary(model)$adj.r.squared))
     print(paste("AIC:", AIC(model)))
@@ -32,7 +33,7 @@ summary(data)
 
 Fit a model using the variables we're interested in
 ```{r}
-model <- lm(CompTotal ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide, data = data)
+model <- lm(CompTotal ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
 ```
 
 Check 5 assumptions of linear regression
@@ -45,7 +46,7 @@ According to our residuals vs. fitted values plot, our model violates the assump
 
 Let's try to fix these issues by performing a log transformation on the response variable.
 ```{r}
-model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide, data = data)
+model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
 plot(model)
 hist(model$residuals)
 ```
@@ -61,10 +62,10 @@ outliers <- cooks_distance > 4 / nrow(data)
 
 nrow(data)
 data <- data[!outliers, ]
-data <- na.omit(data)
+data <- data[complete.cases(data), ]
 nrow(data)
 
-model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide, data = data)
+model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
 plot(model)
 hist(model$residuals)
 ```
@@ -78,13 +79,13 @@ vif(model)
 
 Here we see that YearsCodePro has a GVIF > 5, which is indicative of multicollinearity. However, for this study, we value professional coding experience over general coding experience that includes coding done as a hobby and in school. Therefore, we will keep YearsCodePro in our model and remove YearsCode.
 ```{r}
-model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide, data = data)
+model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
 vif(model)
 ```
 
 Although that the GVIF values of all our variables are < 10, we see that YearsCodePro and WorkExp have GVIF values close to 10. Let's remove WorkExp from our model, since this may include irrelevant, non-coding work experience.
 ```{r}
-model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide, data = data)
+model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
 vif(model)
 ```
 
@@ -130,7 +131,18 @@ backward_model <- step(model, direction = "backward")
 check_criteria(backward_model)
 ```
 
-All three selection methods have produced models that are the same as our original model. Therefore, we will keep our original model.
+All three selection methods have produced the same model. Let's use either of these models as our final model.
+
+R-squared of final model after performing stepwise, forward and backward selection
+```{r}
+summary(step_model)$r.squared
+```
+
+```{r}
+model <- step_model
+```
+
+Interestingly, our final model has removed CodingAsHobbyOnSide and Employment.
 
 Let's test the reliability of our model using split validation and calculating the shrinkage factor.
 
@@ -141,7 +153,7 @@ train_index <- createDataPartition(data$CompTotal, p = 0.7, list = FALSE)
 train <- data[train_index, ]
 test <- data[-train_index, ]
 
-model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro + Industry, data = train)
+model <- lm(log(CompTotal) ~ ICorPM + Age + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro + Industry + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = train)
 
 predictions_train <- predict(model, train)
 predictions_test <- predict(model, test)
@@ -153,5 +165,169 @@ shrinkage_factor <- r_squared_train - r_squared_test
 shrinkage_factor
 ```
 
-Our shrinkage factor is 0.03413445, which is <= 0.1. Therefore, our model is reliable.
+Our shrinkage factor is 0.0002889383, which is <= 0.1. Therefore, our model is reliable.
 
+Coefficients of final model after performing stepwise, forward and backward_model
+```{r}
+coef(model)
+```
+
+Let's run Lasso's regression on our model to see if we can improve it further.
+```{r}
+model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
+
+y <- data$CompTotal
+x <- model.matrix(model, data = data)[, -1]
+
+cv_model <- cv.glmnet(x, y, alpha = 1)
+
+best_lambda <- cv_model$lambda.min
+
+best_model_lasso <- glmnet(x, y, alpha = 1, lambda = best_lambda)
+
+coef(best_model_lasso)
+
+# Get r squared
+predictions <- predict(best_model_lasso, x)
+r_squared <- cor(predictions, y)^2
+r_squared
+```
+
+Let's check the reliability of our Lasso model using split validation and calculating the shrinkage factor.
+
+```{r}
+set.seed(123)
+
+train_index <- createDataPartition(data$CompTotal, p = 0.7, list = FALSE)
+train <- data[train_index, ]
+test <- data[-train_index, ]
+
+y_train <- train$CompTotal
+x_train <- model.matrix(model, data = train)[, -1]
+
+y_test <- test$CompTotal
+x_test <- model.matrix(model, data = test)[, -1]
+
+cv_model <- cv.glmnet(x_train, y_train, alpha = 1)
+
+best_lambda <- cv_model$lambda.min
+
+best_model_lasso <- glmnet(x_train, y_train, alpha = 1, lambda = best_lambda)
+
+predictions_train <- predict(best_model_lasso, x_train)
+predictions_test <- predict(best_model_lasso, x_test)
+
+r_squared_train <- cor(predictions_train, y_train)^2
+r_squared_test <- cor(predictions_test, y_test)^2
+
+shrinkage_factor <- r_squared_train - r_squared_test
+shrinkage_factor
+```
+
+Our shrinkage factor is 0.0001508322, which is <= 0.1. Therefore, our model is reliable.
+
+Let's run Ridge's regression on our model to see if we can improve it further.
+```{r}
+y <- data$CompTotal
+x <- model.matrix(model, data = data)[, -1]
+
+cv_model <- cv.glmnet(x, y, alpha = 0)
+
+best_lambda <- cv_model$lambda.min
+
+best_model_ridge <- glmnet(x, y, alpha = 0, lambda = best_lambda)
+
+coef(best_model_ridge)
+
+# Get r squared
+predictions <- predict(best_model_ridge, x)
+r_squared <- cor(predictions, y)^2
+r_squared
+```
+
+Let's check the reliability of our Ridge model using split validation and calculating the shrinkage factor.
+
+```{r}
+set.seed(123)
+
+train_index <- createDataPartition(data$CompTotal, p = 0.7, list = FALSE)
+train <- data[train_index, ]
+test <- data[-train_index, ]
+
+y_train <- train$CompTotal
+x_train <- model.matrix(model, data = train)[, -1]
+
+y_test <- test$CompTotal
+x_test <- model.matrix(model, data = test)[, -1]
+
+cv_model <- cv.glmnet(x_train, y_train, alpha = 0)
+
+best_lambda <- cv_model$lambda.min
+
+best_model_ridge <- glmnet(x_train, y_train, alpha = 0, lambda = best_lambda)
+
+predictions_train <- predict(best_model_ridge, x_train)
+predictions_test <- predict(best_model_ridge, x_test)
+
+r_squared_train <- cor(predictions_train, y_train)^2
+r_squared_test <- cor(predictions_test, y_test)^2
+
+shrinkage_factor <- r_squared_train - r_squared_test
+shrinkage_factor
+```
+
+Our shrinkage factor is 0.0004936761, which is <= 0.1. Therefore, our model is reliable.
+
+Let's run Elastic Net's regression on our model to see if we can improve it further.
+```{r}
+y <- data$CompTotal
+x <- model.matrix(model, data = data)[, -1]
+
+cv_model <- cv.glmnet(x, y, alpha = 0.5)
+
+best_lambda <- cv_model$lambda.min
+
+best_model_elastic_net <- glmnet(x, y, alpha = 0.5, lambda = best_lambda)
+
+coef(best_model_elastic_net)
+
+# Get r squared
+predictions <- predict(best_model_elastic_net, x)
+
+r_squared <- cor(predictions, y)^2
+
+r_squared
+```
+
+Let's check the reliability of our Elastic Net model using split validation and calculating the shrinkage factor.
+
+```{r}
+set.seed(123)
+
+train_index <- createDataPartition(data$CompTotal, p = 0.7, list = FALSE)
+train <- data[train_index, ]
+test <- data[-train_index, ]
+
+y_train <- train$CompTotal
+x_train <- model.matrix(model, data = train)[, -1]
+
+y_test <- test$CompTotal
+x_test <- model.matrix(model, data = test)[, -1]
+
+cv_model <- cv.glmnet(x_train, y_train, alpha = 0.5)
+
+best_lambda <- cv_model$lambda.min
+
+best_model_elastic_net <- glmnet(x_train, y_train, alpha = 0.5, lambda = best_lambda)
+
+predictions_train <- predict(best_model_elastic_net, x_train)
+predictions_test <- predict(best_model_elastic_net, x_test)
+
+r_squared_train <- cor(predictions_train, y_train)^2
+r_squared_test <- cor(predictions_test, y_test)^2
+
+shrinkage_factor <- r_squared_train - r_squared_test
+shrinkage_factor
+```
+
+Our shrinkage factor is 0.0001802046, which is <= 0.1. Therefore, our model is reliable.
