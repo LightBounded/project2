@@ -39,7 +39,6 @@ colnames(data)[colnames(data) == "Professional development or self-paced learnin
 colnames(data)[colnames(data) == "Freelance/contract work"] <- "DoesFreelanceCodingOnSide"
 colnames(data)[colnames(data) == "School or academic work"] <- "DoesAcademicCodingOnSide"
 
-
 # Remove outliers in compensation using the IQR method since we're dealing with a non-normal distribution and care about predicting the compensation of the averagec developer
 
 # Step 1: Calculate the IQR
