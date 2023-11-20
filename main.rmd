@@ -11,11 +11,11 @@ library(olsrr)
 Function to check model criteria
 ```{r}
 check_criteria <- function(model) {
-    print(vif(model))
-    print(paste("R squared:", summary(model)$r.squared))
-    print(paste("R squared adjusted:", summary(model)$adj.r.squared))
-    print(paste("AIC:", AIC(model)))
-    print(paste("BIC:", BIC(model)))
+  print(vif(model))
+  print(paste("R squared:", summary(model)$r.squared))
+  print(paste("R squared adjusted:", summary(model)$adj.r.squared))
+  print(paste("AIC:", AIC(model)))
+  print(paste("BIC:", BIC(model)))
 }
 ```
 
@@ -33,7 +33,7 @@ summary(data)
 
 Fit a model using the variables we're interested in
 ```{r}
-model <- lm(CompTotal ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
+model <- lm(CompTotal ~ ICorPM + Age + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
 ```
 
 Check 5 assumptions of linear regression
@@ -46,7 +46,7 @@ According to our residuals vs. fitted values plot, our model violates the assump
 
 Let's try to fix these issues by performing a log transformation on the response variable.
 ```{r}
-model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
+model <- lm(log(CompTotal) ~ ICorPM + Age + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
 plot(model)
 hist(model$residuals)
 ```
@@ -65,7 +65,7 @@ data <- data[!outliers, ]
 data <- data[complete.cases(data), ]
 nrow(data)
 
-model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
+model <- lm(log(CompTotal) ~ ICorPM + Age + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCode + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
 plot(model)
 hist(model$residuals)
 ```
@@ -79,13 +79,13 @@ vif(model)
 
 Here we see that YearsCodePro has a GVIF > 5, which is indicative of multicollinearity. However, for this study, we value professional coding experience over general coding experience that includes coding done as a hobby and in school. Therefore, we will keep YearsCodePro in our model and remove YearsCode.
 ```{r}
-model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
+model <- lm(log(CompTotal) ~ ICorPM + Age + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + WorkExp + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
 vif(model)
 ```
 
 Although that the GVIF values of all our variables are < 10, we see that YearsCodePro and WorkExp have GVIF values close to 10. Let's remove WorkExp from our model, since this may include irrelevant, non-coding work experience.
 ```{r}
-model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
+model <- lm(log(CompTotal) ~ ICorPM + Age + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro + Industry + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
 vif(model)
 ```
 
@@ -109,9 +109,9 @@ Our current model is pretty good, but we can do better. Let's try to improve it 
 
 Stepwise selection
 ```{r}
-step_model <- step(lm(log(CompTotal) ~ 1, data = data),
-    direction = "both",
-    scope = list(upper = model, lower = ~1)
+step_model <- step(lm(log(CompTotal) ~ 1, data = data, na.action = na.exclude),
+  direction = "both",
+  scope = list(upper = model, lower = ~1)
 )
 check_criteria(step_model)
 ```
@@ -119,8 +119,8 @@ check_criteria(step_model)
 Forward selection
 ```{r}
 forward_model <- step(lm(log(CompTotal) ~ 1, data = data),
-    direction = "forward",
-    scope = list(upper = model, lower = ~1)
+  direction = "forward",
+  scope = list(upper = model, lower = ~1)
 )
 check_criteria(forward_model)
 ```
@@ -158,8 +158,11 @@ model <- lm(log(CompTotal) ~ ICorPM + Age + DevType + OrgSize + EdLevel + Remote
 predictions_train <- predict(model, train)
 predictions_test <- predict(model, test)
 
-r_squared_train <- cor(predictions_train, train$CompTotal)^2
-r_squared_test <- cor(predictions_test, test$CompTotal)^2
+r_squared_train <- cor(predictions_train, log(train$CompTotal))^2
+r_squared_test <- cor(predictions_test, log(test$CompTotal)^2)
+
+r_squared_train
+r_squared_test
 
 shrinkage_factor <- r_squared_train - r_squared_test
 shrinkage_factor
@@ -174,9 +177,9 @@ coef(model)
 
 Let's run Lasso's regression on our model to see if we can improve it further.
 ```{r}
-model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro + Industry + CodesAsHobbyOnSide + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
+model <- lm(log(CompTotal) ~ ICorPM + Age + Employment + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro + Industry + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
 
-y <- data$CompTotal
+y <- log(data$CompTotal)
 x <- model.matrix(model, data = data)[, -1]
 
 cv_model <- cv.glmnet(x, y, alpha = 1)
@@ -202,10 +205,10 @@ train_index <- createDataPartition(data$CompTotal, p = 0.7, list = FALSE)
 train <- data[train_index, ]
 test <- data[-train_index, ]
 
-y_train <- train$CompTotal
+y_train <- log(train$CompTotal)
 x_train <- model.matrix(model, data = train)[, -1]
 
-y_test <- test$CompTotal
+y_test <- log(test$CompTotal)
 x_test <- model.matrix(model, data = test)[, -1]
 
 cv_model <- cv.glmnet(x_train, y_train, alpha = 1)
@@ -228,7 +231,7 @@ Our shrinkage factor is 0.0001508322, which is <= 0.1. Therefore, our model is r
 
 Let's run Ridge's regression on our model to see if we can improve it further.
 ```{r}
-y <- data$CompTotal
+y <- log(data$CompTotal)
 x <- model.matrix(model, data = data)[, -1]
 
 cv_model <- cv.glmnet(x, y, alpha = 0)
@@ -254,10 +257,10 @@ train_index <- createDataPartition(data$CompTotal, p = 0.7, list = FALSE)
 train <- data[train_index, ]
 test <- data[-train_index, ]
 
-y_train <- train$CompTotal
+y_train <- log(train$CompTotal)
 x_train <- model.matrix(model, data = train)[, -1]
 
-y_test <- test$CompTotal
+y_test <- log(test$CompTotal)
 x_test <- model.matrix(model, data = test)[, -1]
 
 cv_model <- cv.glmnet(x_train, y_train, alpha = 0)
@@ -280,7 +283,7 @@ Our shrinkage factor is 0.0004936761, which is <= 0.1. Therefore, our model is r
 
 Let's run Elastic Net's regression on our model to see if we can improve it further.
 ```{r}
-y <- data$CompTotal
+y <- log(data$CompTotal)
 x <- model.matrix(model, data = data)[, -1]
 
 cv_model <- cv.glmnet(x, y, alpha = 0.5)
@@ -308,10 +311,10 @@ train_index <- createDataPartition(data$CompTotal, p = 0.7, list = FALSE)
 train <- data[train_index, ]
 test <- data[-train_index, ]
 
-y_train <- train$CompTotal
+y_train <- log(train$CompTotal)
 x_train <- model.matrix(model, data = train)[, -1]
 
-y_test <- test$CompTotal
+y_test <- log(test$CompTotal)
 x_test <- model.matrix(model, data = test)[, -1]
 
 cv_model <- cv.glmnet(x_train, y_train, alpha = 0.5)
@@ -331,3 +334,22 @@ shrinkage_factor
 ```
 
 Our shrinkage factor is 0.0001802046, which is <= 0.1. Therefore, our model is reliable.
+
+Here is the equation of our final model:
+```{r}
+model <- lm(log(CompTotal) ~ ICorPM + Age + DevType + OrgSize + EdLevel + RemoteWork + PurchaseInfluence + YearsCodePro + Industry + ContributesToOpenSourceOnSide + BootstrapsBusinessOnSide + LearnsCodeProfessionallyOnlineOnSide + DoesAcademicCodingOnSide + DoesFreelanceCodingOnSide, data = data)
+coefficients <- round(coef(model), 4)
+equation_parts <- sapply(1:length(coefficients), function(i) {
+  if (i == 1) {
+    return(as.character(coefficients[i]))
+  } else {
+    return(paste("+", coefficients[i], "*", names(coefficients)[i]))
+  }
+})
+
+equation <- paste("log(CompTotal) =", paste(equation_parts, collapse = " "))
+equation
+
+anova(model)
+check_criteria(model)
+```
